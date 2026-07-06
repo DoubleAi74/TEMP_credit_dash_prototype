@@ -9,6 +9,8 @@
     "test": "vitest run",
     "db:repair": "node scripts/db-repair.mjs",
     "db:smoke": "node scripts/db-smoke.mjs",
+    "ledger:repair": "node scripts/ledger-repair.mjs",
+    "payment:audit": "node scripts/payment-audit.mjs",
     "sumup:smoke": "node scripts/sumup-smoke.mjs"
   },
   "dependencies": {

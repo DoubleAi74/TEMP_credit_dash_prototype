@@ -4,6 +4,7 @@ import { connectToDatabase } from "../../../../../lib/db/mongoose.mjs";
 import {
   attachHostedCheckoutToOrder,
   createPendingPaymentOrder,
+  findReusablePendingPaymentOrder,
   TOP_UP_DESCRIPTION,
 } from "../../../../../lib/payments/payment-orders.mjs";
 import {
@@ -70,6 +71,22 @@ export async function POST(request) {
     await connectToDatabase();
 
     const environment = getSumUpEnvironment();
+    const reusableOrder = await findReusablePendingPaymentOrder({
+      amountMinor: body.amountMinor,
+      currency: environment.SUMUP_CURRENCY,
+    });
+
+    if (
+      reusableOrder &&
+      isSafeHostedCheckoutUrl(reusableOrder.sumupHostedCheckoutUrl)
+    ) {
+      return NextResponse.json({
+        checkoutUrl: reusableOrder.sumupHostedCheckoutUrl,
+        orderId: reusableOrder.publicReference,
+        reused: true,
+      });
+    }
+
     const order = await createPendingPaymentOrder({
       amountMinor: body.amountMinor,
       currency: environment.SUMUP_CURRENCY,

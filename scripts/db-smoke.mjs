@@ -11,7 +11,10 @@ import {
 } from "../lib/db/mongoose.mjs";
 import { Balance } from "../lib/models/Balance.mjs";
 import { Card } from "../lib/models/Card.mjs";
+import { CreditLedger } from "../lib/models/CreditLedger.mjs";
 import { PaymentOrder } from "../lib/models/PaymentOrder.mjs";
+import { RefundRecord } from "../lib/models/RefundRecord.mjs";
+import { WebhookEvent } from "../lib/models/WebhookEvent.mjs";
 
 function loadEnvLocal() {
   const envPath = resolve(process.cwd(), ".env.local");
@@ -65,7 +68,10 @@ try {
       collections: {
         balance: Balance.collection.name,
         cards: Card.collection.name,
+        creditLedger: CreditLedger.collection.name,
         paymentOrders: PaymentOrder.collection.name,
+        refunds: RefundRecord.collection.name,
+        webhookEvents: WebhookEvent.collection.name,
       },
       database: getConfiguredDatabaseName(),
       currency: balance.currency,

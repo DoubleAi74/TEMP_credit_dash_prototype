@@ -23,18 +23,27 @@ the right — examples shown are **placeholders**, not real):
 MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/credit_dash
 
 # SumUp (sandbox / test)
-SUMUP_API_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxx
-SUMUP_MERCHANT_CODE=XXXXXXXX
+SUMUP_MODE=sandbox
+SUMUP_API_KEY_TEST=sk_test_xxxxxxxxxxxxxxxxxxxxx
+SUMUP_MERCHANT_CODE_TEST=XXXXXXXX
+SUMUP_API_KEY_LIVE=
+SUMUP_MERCHANT_CODE_LIVE=
 SUMUP_API_BASE_URL=https://api.sumup.com
 SUMUP_CURRENCY=GBP
 SUMUP_WEBHOOK_URL=https://your-tunnel-url.example/api/webhooks/sumup
 SUMUP_CHECKOUT_RETURN_URL=https://your-tunnel-url.example/payment/return
+ALLOW_TEMP_LIVE_PAYMENT_URLS=false
 
 # App
 APP_BASE_URL=http://localhost:3000
 
 # Dev-only testing control (leave OFF unless testing)
 ENABLE_TEST_CONTROLS=true
+
+# Admin tools (off unless operating payments)
+ENABLE_ADMIN_TOOLS=false
+ADMIN_USERNAME=
+ADMIN_PASSWORD=
 ```
 
 Don't worry about filling it in yet — the steps below tell you where each value
@@ -104,7 +113,7 @@ like the real thing but **moves no real money** — perfect for building and tes
 ### B3. Record the sandbox merchant code
 1. Still in the sandbox account, find the **merchant code** (shown in the
    sandbox/merchant profile).
-2. Copy it into **`SUMUP_MERCHANT_CODE`** in `.env.local`.
+2. Copy it into **`SUMUP_MERCHANT_CODE_TEST`** in `.env.local`.
    > Sandbox and live have **different** merchant codes — make sure this is the
    > **sandbox** one.
 
@@ -115,13 +124,15 @@ like the real thing but **moves no real money** — perfect for building and tes
    able to see it again.
    > ⚠️ There may be a **public** key shown too. Do **not** use that. You want the
    > **secret** `sk_test_…` key.
-4. Paste it into **`SUMUP_API_KEY`** in `.env.local`.
+4. Paste it into **`SUMUP_API_KEY_TEST`** in `.env.local`.
 
 ### B5. Fill in the remaining SumUp settings
 In `.env.local`, set these fixed values:
 ```bash
+SUMUP_MODE=sandbox
 SUMUP_API_BASE_URL=https://api.sumup.com
 SUMUP_CURRENCY=GBP
+ALLOW_TEMP_LIVE_PAYMENT_URLS=false
 ```
 The two **URL** settings (`SUMUP_WEBHOOK_URL` and `SUMUP_CHECKOUT_RETURN_URL`) need
 a public web address — set them in Part C next.
@@ -201,6 +212,37 @@ Open <http://localhost:3000>. You should see the dashboard with a **£5.00** bal
   sandbox is designed to make `11.00` fail. Your balance should **not** change.
 - A successful sandbox payment should **credit your balance exactly once**, even if
   the webhook arrives twice.
+- `SUMUP_MODE=sandbox` is the default and is required for local test-card work.
+
+---
+
+## Part F — Admin tools and live-payment readiness
+
+Admin tools are disabled by default. Before any real-money deployment, set:
+
+```bash
+ENABLE_ADMIN_TOOLS=true
+ADMIN_USERNAME=choose-a-username
+ADMIN_PASSWORD=choose-a-long-password
+```
+
+Then open `/admin/orders`. The browser should ask for Basic Auth credentials.
+
+For live payments, use production HTTPS URLs:
+
+```bash
+SUMUP_MODE=live
+APP_BASE_URL=https://your-production-domain.example
+SUMUP_WEBHOOK_URL=https://your-production-domain.example/api/webhooks/sumup
+SUMUP_CHECKOUT_RETURN_URL=https://your-production-domain.example/payment/return
+SUMUP_API_KEY_LIVE=your-live-server-secret-key
+SUMUP_MERCHANT_CODE_LIVE=your-live-merchant-code
+ALLOW_TEMP_LIVE_PAYMENT_URLS=false
+```
+
+The app refuses live mode with localhost or temporary tunnel URLs unless
+`ALLOW_TEMP_LIVE_PAYMENT_URLS=true` is set deliberately for a short controlled test.
+See `OPERATIONS.md` before using live credentials.
 
 ---
 
@@ -209,11 +251,13 @@ Open <http://localhost:3000>. You should see the dashboard with a **£5.00** bal
 - [ ] MongoDB Atlas: cluster created, DB user made, network access allowed
 - [ ] `MONGODB_URI` filled in (with username, password, and `/credit_dash`)
 - [ ] SumUp: sandbox merchant created and **switched into**
-- [ ] `SUMUP_MERCHANT_CODE` (sandbox) filled in
-- [ ] `SUMUP_API_KEY` (secret `sk_test_…`) filled in
+- [ ] `SUMUP_MERCHANT_CODE_TEST` (sandbox) filled in
+- [ ] `SUMUP_API_KEY_TEST` (secret `sk_test_…` or sandbox server key) filled in
 - [ ] `SUMUP_API_BASE_URL`, `SUMUP_CURRENCY` set
+- [ ] `SUMUP_MODE=sandbox` for local testing
 - [ ] Tunnel running; `SUMUP_WEBHOOK_URL` + `SUMUP_CHECKOUT_RETURN_URL` set (Stage 3)
 - [ ] `APP_BASE_URL=http://localhost:3000`
+- [ ] `ENABLE_ADMIN_TOOLS=false` unless operating payments
 - [ ] `.env.local` created (never committed to git)
 - [ ] `npm install` then `npm run dev` → dashboard shows £5.00
 

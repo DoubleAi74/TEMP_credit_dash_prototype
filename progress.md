@@ -7,15 +7,20 @@ Simple (standalone prototype)
 Next.js App Router / JavaScript · Tailwind CSS · MongoDB Atlas + Mongoose · SumUp Hosted Checkout (sandbox) · npm · ESLint · Vitest
 
 ## Current State
-T17 complete. The return flow now polls `GET /api/payments/sumup/orders/[orderId]`,
-which retrieves the checkout from SumUp server-side, verifies id/ref/merchant/currency/
-amount/status, and credits the balance only after verified `PAID`. The SumUp webhook
-route also uses the same authoritative retrieval path. Exactly-once credit is guarded
-by `balanceCredited: false` inside an Atlas transaction. A previously successful £5
-sandbox payment was reconciled: balance rose from 500p to 1000p, and a repeat
-verification did not credit again. UX fix: the visible "Add card" dashboard button now
-uses the paid `/api/dashboard/fire` path, so creating a card from the dashboard spends
-exactly 2p just like the fire button. Ready for T18 idempotency hardening.
+T18 and Phase 7 implementation are complete. Verified SumUp top-ups and dashboard
+card creation now move money only through the append-only `credit_ledger` collection.
+`/api/payments/sumup/checkout` reuses a recent pending hosted checkout for the same
+amount, so an accidental double-click does not create multiple payment attempts.
+Admin tools are protected by `proxy.js` Basic Auth and gated by `ENABLE_ADMIN_TOOLS`.
+Admin order, webhook, refund, and audit endpoints/pages are in place. `npm run
+ledger:repair` created 3 historical `TOP_UP` rows and is idempotent on rerun.
+Post-repair audit: `missingLedgerCount=0`, `uncreditedPaidCount=0`,
+`mismatchCount=0`, `unknownWebhookCount=0`, `stalePendingCount=6` old sandbox
+pending orders. SumUp env resolution now supports split `SUMUP_API_KEY_TEST` /
+`SUMUP_API_KEY_LIVE` and `SUMUP_MERCHANT_CODE_TEST` / `SUMUP_MERCHANT_CODE_LIVE`
+names, with case-insensitive `SUMUP_MODE`; local `.env.local` resolves to live mode
+via `SUMUP_API_KEY_LIVE`. Ready for T19 sandbox smoke scenarios and Phase 7 live
+smoke when production/Vercel env vars are available.
 
 ## Command Baseline
 - Install: `npm install`
@@ -46,8 +51,21 @@ exactly 2p just like the fire button. Ready for T18 idempotency hardening.
 - [x] T15 — `GET /api/payments/sumup/orders/[orderId]` (internal status only) + `/payment/return` page that polls it — done when success/pending/failed are detected server-side (never from URL params)
 - [x] T16 — `POST /api/webhooks/sumup`: validate shape, ack 2xx fast, authoritative retrieval, verify (id/ref/merchant/currency/amount/PAID) — done when a verified payment marks the order PAID
 - [x] T17 — Exactly-once credit: guarded atomic PAID transition + `balanceCredited` flag `$inc` balance once (Atlas transaction or conditional `findOneAndUpdate` fallback) — done when a verified payment credits the balance exactly once
-- [ ] T18 — Idempotency / duplicate-webhook + duplicate-checkout protection (unique reference, reuse pending checkout) — done when a repeat webhook and a double-click do not double-credit or double-charge
+- [x] T18 — Idempotency / duplicate-webhook + duplicate-checkout protection (unique reference, reuse pending checkout) — done when a repeat webhook and a double-click do not double-credit or double-charge
 - [ ] T19 — Sandbox smoke tests (plan §12): successful GBP top-up credits the counter; `11.00` fails & credits nothing; cancelled/expired credit nothing; duplicate webhook harmless — done when all pass and the £ balance rises after a real sandbox payment
+
+## Tasks — Phase 7 (real-money operational safety)
+- [x] P7-01 — Explicit `SUMUP_MODE=sandbox|live` guard with live HTTPS URL checks
+- [x] P7-02 — Append-only `credit_ledger` model, helper, tests, and repair script
+- [x] P7-03 — Verified top-up credits write `TOP_UP` ledger rows
+- [x] P7-04 — Card creation spends write `CARD_CREATE` ledger rows
+- [x] P7-05 — Admin Basic Auth gate via `proxy.js`
+- [x] P7-06 — Admin order view and manual SumUp refresh
+- [x] P7-07 — Scrubbed webhook event logging and admin webhook history
+- [x] P7-08 — Refund tracking, SumUp refund adapter, and ledger refund adjustment
+- [x] P7-09 — Stuck-payment audit script and admin audit API
+- [x] P7-10 — Operations runbook
+- [ ] P7-11 — Final real-money smoke on production HTTPS with a tiny live payment
 
 ## Notes & Blockers
 - Webhook local dev uses the public tunnel in `SUMUP_WEBHOOK_URL`; if only the tunnel
