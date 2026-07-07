@@ -13,6 +13,8 @@ import {
 import { Balance } from "../../../../lib/models/Balance.mjs";
 import { Card } from "../../../../lib/models/Card.mjs";
 import { FIRE_COST_MINOR } from "../../../../lib/money";
+import { buildCardPlaceholderObjectKey } from "../../../../lib/r2/card-placeholder.mjs";
+import { createCardPlaceholderObject } from "../../../../lib/r2/card-r2-lifecycle.mjs";
 
 export async function POST() {
   await connectToDatabase();
@@ -23,7 +25,18 @@ export async function POST() {
 
   try {
     await session.withTransaction(async () => {
-      const [card] = await Card.create([createRandomCardData()], { session });
+      const cardId = new mongoose.Types.ObjectId();
+      const [card] = await Card.create(
+        [
+          {
+            _id: cardId,
+            ...createRandomCardData(),
+            r2ObjectKey: buildCardPlaceholderObjectKey(cardId.toString()),
+            r2Status: "pending_create",
+          },
+        ],
+        { session },
+      );
       const ledgerResult = await applyLedgeredBalanceChange({
         amountMinor: -FIRE_COST_MINOR,
         cardId: card._id,
@@ -37,6 +50,7 @@ export async function POST() {
         ok: true,
         balance: serializeBalance(ledgerResult.balance),
         card: serializeCard(card),
+        cardDocument: card,
       };
     });
   } catch (error) {
@@ -59,6 +73,8 @@ export async function POST() {
   } finally {
     await session.endSession();
   }
+
+  await createCardPlaceholderObject({ card: result.cardDocument });
 
   return NextResponse.json({
     balance: result.balance,

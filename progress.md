@@ -22,6 +22,16 @@ names, with case-insensitive `SUMUP_MODE`; local `.env.local` resolves to live m
 via `SUMUP_API_KEY_LIVE`. Ready for T19 sandbox smoke scenarios and Phase 7 live
 smoke when production/Vercel env vars are available.
 
+Cloudflare R2 card lifecycle (R2-00 … R2-11) is implemented: visible cards
+created via `POST /api/dashboard/fire` get a placeholder object at
+`cards/{cardId}/placeholder.json` in one private R2 bucket; deletes soft-delete
+first, remove the R2 object, then permanently delete Mongo; failures are
+retryable via `npm run r2:reconcile-cards`; `npm run r2:smoke` verifies
+credentials. Detailed ledger: `cloudflare-r2-card-lifecycle-progress.md`.
+Awaiting R2-12 final manual test once R2 credentials are added to `.env.local`.
+Note: stale money test assertions were updated to match commit `ae60c6e`
+("minimoney", `TOP_UP_MIN_MINOR` 100 → 1); app money behavior unchanged.
+
 ## Command Baseline
 - Install: `npm install`
 - Dev/Run: `npm run dev` (open http://localhost:3000)
@@ -53,6 +63,21 @@ smoke when production/Vercel env vars are available.
 - [x] T17 — Exactly-once credit: guarded atomic PAID transition + `balanceCredited` flag `$inc` balance once (Atlas transaction or conditional `findOneAndUpdate` fallback) — done when a verified payment credits the balance exactly once
 - [x] T18 — Idempotency / duplicate-webhook + duplicate-checkout protection (unique reference, reuse pending checkout) — done when a repeat webhook and a double-click do not double-credit or double-charge
 - [ ] T19 — Sandbox smoke tests (plan §12): successful GBP top-up credits the counter; `11.00` fails & credits nothing; cancelled/expired credit nothing; duplicate webhook harmless — done when all pass and the £ balance rises after a real sandbox payment
+
+## Tasks — Cloudflare R2 card lifecycle
+- [x] R2-00 — Preflight, baseline lint/test/build, flow confirmation
+- [x] R2-01 — R2 env contract (`lib/r2/r2-env.mjs`, `.env.example` names)
+- [x] R2-02 — `@aws-sdk/client-s3` + R2 client wrapper (`lib/r2/r2-client.mjs`)
+- [x] R2-03 — Card model R2 fields, statuses, and indexes
+- [x] R2-04 — Placeholder key/content/metadata builder (`lib/r2/card-placeholder.mjs`)
+- [x] R2-05 — Card R2 lifecycle service (`lib/r2/card-r2-lifecycle.mjs`)
+- [x] R2-06 — `/api/dashboard/fire` creates placeholder after commit (2p ledger intact)
+- [x] R2-07 — `/api/dashboard/state` hides soft-deleted cards
+- [x] R2-08 — `DELETE /api/dashboard/cards/[id]` soft-delete → R2 delete → permanent delete
+- [x] R2-09 — `npm run r2:reconcile-cards` retry/repair script
+- [x] R2-10 — `npm run r2:smoke` credential smoke script
+- [x] R2-11 — SETUP.md Part G, OPERATIONS.md R2 runbook, progress docs
+- [ ] R2-12 — Final manual test with real R2 credentials in `.env.local`
 
 ## Tasks — Phase 7 (real-money operational safety)
 - [x] P7-01 — Explicit `SUMUP_MODE=sandbox|live` guard with live HTTPS URL checks

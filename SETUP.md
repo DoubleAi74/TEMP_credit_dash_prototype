@@ -44,6 +44,14 @@ ENABLE_TEST_CONTROLS=true
 ENABLE_ADMIN_TOOLS=false
 ADMIN_USERNAME=
 ADMIN_PASSWORD=
+
+# Cloudflare R2 (card placeholder objects — see Part G)
+R2_ENABLED=false
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_NAME=
+R2_PUBLIC_BASE_URL=
 ```
 
 Don't worry about filling it in yet — the steps below tell you where each value
@@ -246,6 +254,52 @@ See `OPERATIONS.md` before using live credentials.
 
 ---
 
+## Part G — Cloudflare R2 (card placeholder objects)
+
+When a card is created with the paid **Add card** button, the app also writes a
+small placeholder file to a **Cloudflare R2** bucket, and deletes it again when
+the card is deleted. This is optional for local dev: with `R2_ENABLED=false` (or
+unset) the app skips R2 entirely and marks new cards as `skipped`.
+
+### G1. Create a bucket
+1. Sign in at <https://dash.cloudflare.com/> and open **R2 Object Storage**.
+2. Click **Create bucket**. Pick a name (for example `credit-dash-cards`) and
+   keep all defaults. One bucket is enough.
+3. Keep the bucket **private** (do not enable public access).
+
+### G2. Create an API token for the bucket
+1. In R2, open **Manage R2 API Tokens** → **Create API Token**.
+2. Give it a name like `credit-dash-cards-rw`.
+3. Permissions: **Object Read & Write**, scoped to **only your new bucket** if
+   the option is available.
+4. Create the token and **copy the Access Key ID and Secret Access Key
+   immediately** — the secret is shown only once.
+5. Also note your **Account ID** (shown on the R2 overview page and in the S3
+   endpoint, `https://<accountid>.r2.cloudflarestorage.com`).
+
+### G3. Fill in `.env.local`
+```bash
+R2_ENABLED=true
+R2_ACCOUNT_ID=your-account-id
+R2_ACCESS_KEY_ID=your-access-key-id
+R2_SECRET_ACCESS_KEY=your-secret-access-key
+R2_BUCKET_NAME=credit-dash-cards
+R2_PUBLIC_BASE_URL=
+```
+- `R2_PUBLIC_BASE_URL` stays empty — the bucket is private and the app never
+  serves object URLs to the browser.
+- When `R2_ENABLED=true`, all four credential values are required.
+
+### G4. Verify
+```bash
+npm run r2:smoke
+```
+This writes, checks, and deletes one temporary object under `smoke/` and prints
+a one-line JSON result. It never touches cards. See `OPERATIONS.md` for the R2
+runbook (statuses, retries, reconciliation).
+
+---
+
 ## Quick checklist
 
 - [ ] MongoDB Atlas: cluster created, DB user made, network access allowed
@@ -258,6 +312,8 @@ See `OPERATIONS.md` before using live credentials.
 - [ ] Tunnel running; `SUMUP_WEBHOOK_URL` + `SUMUP_CHECKOUT_RETURN_URL` set (Stage 3)
 - [ ] `APP_BASE_URL=http://localhost:3000`
 - [ ] `ENABLE_ADMIN_TOOLS=false` unless operating payments
+- [ ] Cloudflare R2 bucket + token created and `R2_*` values set (or
+      `R2_ENABLED=false` to skip R2 locally)
 - [ ] `.env.local` created (never committed to git)
 - [ ] `npm install` then `npm run dev` → dashboard shows £5.00
 

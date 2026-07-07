@@ -11,9 +11,12 @@
     "db:smoke": "node scripts/db-smoke.mjs",
     "ledger:repair": "node scripts/ledger-repair.mjs",
     "payment:audit": "node scripts/payment-audit.mjs",
+    "r2:reconcile-cards": "node scripts/r2-reconcile-cards.mjs",
+    "r2:smoke": "node scripts/r2-smoke.mjs",
     "sumup:smoke": "node scripts/sumup-smoke.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1080.0",
     "mongoose": "^9.7.3",
     "next": "^16.0.0",
     "react": "^19.0.0",

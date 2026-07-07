@@ -10,7 +10,9 @@ export async function GET() {
   try {
     await connectToDatabase();
     const balance = await ensureSharedBalance();
-    const cards = await Card.find({})
+    const cards = await Card.find({
+      $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
+    })
       .sort({ createdAt: -1, _id: -1 })
       .lean();
 

@@ -62,12 +62,12 @@ describe("DashboardClient top-up checkout", () => {
     await user.click(screen.getByRole("button", { name: "Add money" }));
     const input = screen.getByLabelText(/Amount/);
     await user.clear(input);
-    await user.type(input, "0.99");
+    await user.type(input, "101.00");
     await user.click(screen.getByRole("button", { name: "Go to checkout" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByRole("alert").textContent).toBe(
-      "Enter £1.00 to £100.00.",
+      "Enter £0.01 to £100.00.",
     );
   });
 

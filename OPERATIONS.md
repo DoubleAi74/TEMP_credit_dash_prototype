@@ -67,6 +67,76 @@ This runbook is for the real-money-ready prototype. Keep secrets only in local
   webhooks.
 - Every new balance movement should have one `credit_ledger` row.
 
+## Cloudflare R2 Card Placeholders
+
+Visible cards created through the paid Add card button (`POST /api/dashboard/fire`)
+also create one placeholder object in the R2 bucket at
+`cards/{cardId}/placeholder.json` (HTML content by design). Deleting the card
+deletes the object. MongoDB and R2 are kept eventually consistent through card
+status fields — R2 is never part of the Mongo transaction.
+
+Card R2 statuses on `dashboard_cards` documents:
+
+- `not_required` — legacy card from before the R2 feature; no object exists.
+- `pending_create` / `created` / `create_failed` — create lifecycle. A
+  `create_failed` card stays visible and is repaired by reconciliation.
+- `pending_delete` / `delete_failed` / `deleted` — delete lifecycle. A
+  `delete_failed` card is soft-deleted (`deletedAt` set), hidden from the
+  dashboard, and cleaned up by reconciliation before permanent removal.
+- `skipped` — created while `R2_ENABLED` was false; no object exists.
+
+Delete API behavior: `204` means Mongo and R2 are both clean; `202` means the
+card is hidden but R2 cleanup is still pending retry.
+
+## Verify R2 Credentials
+
+```bash
+npm run r2:smoke
+```
+
+Writes, heads, and deletes one temporary object under `smoke/` and prints a
+one-line JSON summary. Requires `R2_ENABLED=true` and the four `R2_*`
+credential values in `.env.local`. Never touches cards.
+
+## Reconcile R2 And Cards
+
+```bash
+npm run r2:reconcile-cards
+```
+
+- Retries the placeholder upload for visible cards with `pending_create` or
+  `create_failed`.
+- Retries the R2 delete for every soft-deleted card, treats an already-missing
+  object as success, and permanently deletes the Mongo card only after R2 is
+  clean.
+- Prints one safe JSON summary line and is safe to rerun any time.
+- Run it with `R2_ENABLED=true`; with R2 disabled it marks pending creates as
+  `skipped` (matching local-dev route behavior) and leaves real-object deletes
+  as `delete_failed` with code `R2_DISABLED`.
+
+## R2 Failure Recovery
+
+- Card visible but `r2Status = "create_failed"`: fix credentials/network, then
+  run `npm run r2:reconcile-cards`. The card is usable the whole time.
+- Card deleted in UI but still in Mongo with `delete_failed`: rerun
+  `npm run r2:reconcile-cards`; the record is removed once the R2 delete
+  succeeds or the object is already gone.
+- Emergency manual flow: query soft-deleted cards
+  (`deletedAt != null, r2Status: "delete_failed"`), confirm each `r2ObjectKey`,
+  delete the object in the Cloudflare dashboard if needed, then rerun
+  reconciliation to purge the Mongo records.
+- Safe log fields for R2 problems: card id, object key, operation, and safe
+  error code (`R2_ACCESS_DENIED`, `R2_TIMEOUT`, `R2_CONFIG_MISSING`,
+  `R2_DISABLED`, `R2_BUCKET_NOT_FOUND`, `R2_OBJECT_NOT_FOUND`, `R2_UNKNOWN`).
+
+## Rotate R2 Keys
+
+1. Create a new R2 API token scoped to the bucket (Object Read & Write).
+2. Update `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in `.env.local` or
+   Vercel env vars.
+3. Redeploy/restart, then run `npm run r2:smoke`.
+4. Revoke the old token in the Cloudflare dashboard.
+
 ## Rotate SumUp Keys
 
 1. Create a new server secret key in the matching SumUp mode.
@@ -83,6 +153,8 @@ This runbook is for the real-money-ready prototype. Keep secrets only in local
 - Raw webhook bodies that may include sensitive provider data.
 - Hosted checkout URLs in long-lived logs.
 - Card data.
+- R2 access key id, secret access key, or raw SDK request/response headers.
+  (Card ids, object keys, and safe R2 error codes are fine.)
 
 ## Stuck Paid / Uncredited Payment
 
